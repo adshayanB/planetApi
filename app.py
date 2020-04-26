@@ -6,6 +6,7 @@ from flask_marshmallow import Marshmallow
 from flask_jwt_extended import JWTManager, jwt_required, create_access_token
 from flask_mail import Mail, Message
 
+
 app= Flask(__name__)
 basedir = os.path.abspath(os.path.dirname(__file__)) #Where to store the file for the db (same folder as the running application)
 app.config['SQLALCHEMY_DATABASE_URI'] ='sqlite:///' + os.path.join(basedir,'planets.db') #initalized db
@@ -23,6 +24,8 @@ ma = Marshmallow(app) # Creates Seralilzer
 jwt=JWTManager(app)
 mail=Mail(app)
 
+
+#Database Commands
 @app.cli.command('dbCreate')
 def db_create():
     db.create_all()
@@ -58,42 +61,15 @@ def db_seed():
     db.session.add(venus)
     db.session.add(earth)
 
-    testUser=User(first_name='William',
-                   last_name='Hershel',
+    testUser=User(first_name='Galileo',
+                   last_name='Galilei',
                    email='test@test1.com',
                    password ='password')
     db.session.add(testUser)
     db.session.commit()
     print('Database Seeded!')
 
-@app.route('/')
-def hello_world():
-    return 'Hello World!'
-
-
-@app.route('/testEndpoint')
-def testEndpoint():
-    return jsonify(message='Hello from the testEndpoint!')
-
-@app.route('/not_found')
-def not_found():
-    return jsonify(message='That resource was not found'),404
-
-@app.route('/parameters')
-def parameters():
-    name=request.args.get('name')
-    age= int(request.args.get('age'))
-
-    if age< 18:
-        return jsonify(message=f"Sorry {name} you are not authorized"),401
-    else:
-        return jsonify(message=f"Welcome {name} you are old enough")
-@app.route('/urlVariables/<string:name>/<int:age>')
-def urlVariables(name,age):
-    if age< 18:
-        return jsonify(message=f"Sorry {name} you are not authorized"),401
-    else:
-        return jsonify(message=f"Welcome {name} you are old enough")
+#Endpoints
 
 @app.route('/planets',methods=['GET'])
 def planets():
@@ -139,7 +115,7 @@ def login ():
 def retrieve_password(email):
      user=User.query.filter_by(email=email).first()
      if user:
-        msg=Message("Your planetary API password is "+ user.password, sender="admin@planetary-api.com", recipients=[email])
+        msg=Message("Your planetary API password is "+ user.password, sender="admin@admin.com", recipients=[email])
         mail.send(msg)
         return jsonify(message="Password sent to "+ email)
      else:
@@ -150,7 +126,7 @@ def planet_id(planet_id):
     planet=Planet.query.filter_by(planet_id=planet_id).first()
 
     if planet:
-        result=result = planet_Schema.dump(planet)
+        result = planet_Schema.dump(planet)
         return jsonify(result)
     else:
         return jsonify(message='That planet does not exist'),404
@@ -189,7 +165,7 @@ def updatePlanet():
     if planet:
         planet.planet_name=request.form['planet_name']
         planet.planet_type=request.form['planet_type']
-        planet.home_star=request.form['home_star']
+        #planet.home_star=request.form['home_star']
         planet.mass=float(request.form['mass'])
         planet.radius=float(request.form['radius'])
         planet.distance=float(request.form['distance'])
@@ -198,6 +174,24 @@ def updatePlanet():
         return jsonify(message="You updated a Planet"),202
     else:
         return jsonify(message="Planet does not exist"),404
+
+
+@app.route('/updateUser', methods=['PUT'])
+@jwt_required
+def updateUser():
+    email=request.form['email']
+    user=User.query.filter_by(email=email).first()
+
+    if user:
+        user.first_name=request.form['first_name']
+        user.last_name=request.form['last_name']
+        user.password=request.form['password']
+        db.session.commit()
+        return jsonify(message="You updated an User"),202
+
+    else:
+        return jsonify(message="User does not exist"),404
+
 
 @app.route('/remove_planet/<planet_id>',methods=['DELETE'])
 @jwt_required
@@ -209,6 +203,16 @@ def remove_planet(planet_id):
         return jsonify(message='Planet Deleted'),202
     else:
         return jsonify(message="Planet does not exist"),404
+
+@app.route('/user_details/<string:email>', methods=['GET'])
+@jwt_required #Note this token can acess other user data, need to be fixed using a wraps? perhaps
+def user_details(email):
+    user=User.query.filter_by(email=email).first()
+    if user:
+        result=user_Schema.dump(user)
+        return jsonify(result)
+    else:
+        return jsonify(message='That user does not exist'),404
 
 
 #This section is for Database Models
